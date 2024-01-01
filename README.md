@@ -1,2 +1,2 @@
-# llm-indic
-LLM Indic Evaluation Datasets and Code
+# Indic LLM Evaluation
+Tools and Datasets for Indic LLM Evaluation
