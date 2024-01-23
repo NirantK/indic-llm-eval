@@ -5,8 +5,8 @@ stub = modal.Stub()
 volume = modal.NetworkFileSystem.persisted("data")
 MODEL_DIR = "/data"
 
-# change parameters value according  time taken to translate dataset
-@stub.function( cpu=2, memory = 4276, gpu = 'A10G', timeout=1200, network_file_systems={MODEL_DIR: volume})
+# change parameters value according  time taken to translate
+@stub.function( cpu=4, memory = 8276, gpu = 'A100', timeout=1200, network_file_systems={MODEL_DIR: volume})
 def loadIndicTrans2(dataset_name):
     import time
     start_time = time.time()
@@ -24,7 +24,7 @@ def loadIndicTrans2(dataset_name):
         subprocess.run(command, shell=True)
 
     os.chdir("IndicTrans2/huggingface_interface")
-    subprocess.run("bash install.sh", shell=True)
+    subprocess.run(["bash", "install.sh"])
 
 
 # worked around with creating a file, as changing directory was not working
@@ -32,6 +32,10 @@ def loadIndicTrans2(dataset_name):
         file.write(f'''
 try:
     import torch
+    import subprocess
+    subprocess.run(["apt-get", "update", "-y"])
+    subprocess.run(["apt-get", "install", "wget", "-y"])
+    from datasets import load_dataset
     import os
     import pandas as pd
     import csv
@@ -123,8 +127,7 @@ try:
     ip = IndicProcessor(inference=True)
     en_indic_tokenizer, en_indic_model = initialize_model_and_tokenizer(en_indic_ckpt_dir, "en-indic", quantization)
 
-
-    from datasets import load_dataset
+    
     dataset_name = '{dataset_name}'
     if(dataset_name == "ai2_arc"):
         possible_configs = [
@@ -152,69 +155,88 @@ try:
         "business_ethics",
         "clinical_knowledge",
         "medical_genetics",
-        "high_school_us_history",
-        "high_school_physics",
-        "high_school_world_history",
-        "virology",
-        "high_school_microeconomics",
-        "econometrics",
-        "college_computer_science",
-        "high_school_biology",
-        "abstract_algebra",
-        "professional_accounting",
-        "philosophy",
-        "professional_medicine",
-        "nutrition",
-        "global_facts",
-        "machine_learning",
-        "security_studies",
-        "public_relations",
-        "professional_psychology",
-        "prehistory",
-        "anatomy",
-        "human_sexuality",
-        "college_medicine",
-        "high_school_government_and_politics",
-        "college_chemistry",
-        "logical_fallacies",
-        "high_school_geography",
-        "elementary_mathematics",
-        "human_aging",
-        "college_mathematics",
-        "high_school_psychology",
-        "formal_logic",
-        "high_school_statistics",
-        "international_law",
-        "high_school_mathematics",
-        "high_school_computer_science",
-        "conceptual_physics",
-        "miscellaneous",
-        "high_school_chemistry",
-        "marketing",
-        "professional_law",
-        "management",
-        "college_physics",
-        "jurisprudence",
-        "world_religions",
-        "sociology",
-        "us_foreign_policy",
-        "high_school_macroeconomics",
-        "computer_security",
-        "moral_scenarios",
-        "moral_disputes",
-        "electrical_engineering",
-        "astronomy",
-        "college_biology"
+        # "high_school_us_history",
+        # "high_school_physics",
+        # "high_school_world_history",
+        # "virology",
+        # "high_school_microeconomics",
+        # "econometrics",
+        # "college_computer_science",
+        # "high_school_biology",
+        # "abstract_algebra",
+        # "professional_accounting",
+        # "philosophy",
+        # "professional_medicine",
+        # "nutrition",
+        # "global_facts",
+        # "machine_learning",
+        # "security_studies",
+        # "public_relations",
+        # "professional_psychology",
+        # "prehistory",
+        # "anatomy",
+        # "human_sexuality",
+        # "college_medicine",
+        # "high_school_government_and_politics",
+        # "college_chemistry",
+        # "logical_fallacies",
+        # "high_school_geography",
+        # "elementary_mathematics",
+        # "human_aging",
+        # "college_mathematics",
+        # "high_school_psychology",
+        # "formal_logic",
+        # "high_school_statistics",
+        # "international_law",
+        # "high_school_mathematics",
+        # "high_school_computer_science",
+        # "conceptual_physics",
+        # "miscellaneous",
+        # "high_school_chemistry",
+        # "marketing",
+        # "professional_law",
+        # "management",
+        # "college_physics",
+        # "jurisprudence",
+        # "world_religions",
+        # "sociology",
+        # "us_foreign_policy",
+        # "high_school_macroeconomics",
+        # "computer_security",
+        # "moral_scenarios",
+        # "moral_disputes",
+        # "electrical_engineering",
+        # "astronomy",
+        # "college_biology"
         ]
         # columns to translate
         columns = ['input','A','B','C','D']
         # columns not to translate, to keep in converted dataset as is.
         columns_asis = ['target']
 
-        dataset = []
-    for config in possible_configs:
-        dataset_slice = load_dataset(dataset_name, config,ignore_verifications=True)
-        dataset.append(dataset_slice)
+    dataset = []
+    if(dataset_name == "ai2_arc"):
+        for config in possible_configs:
+            for i in ['train','test','validation']:
+                subprocess.run(["wget", f"https://huggingface.co/api/datasets/allenai/ai2_arc/parquet/{{config}}/{{i}}/0.parquet", "-O", f'{{config}}{{i}}.parquet'])
+            
+            data_files = {{"train": f'{{config}}train.parquet',"test":f'{{config}}test.parquet', "validation": f'{{config}}validation.parquet'}}
+            dataset_slice = load_dataset("parquet", data_files=data_files)
+            dataset.append(dataset_slice)
+    elif(dataset_name == "gsm8k"):
+        for config in possible_configs:
+            for i in ['train','test']:
+                subprocess.run(["wget", f"https://huggingface.co/api/datasets/gsm8k/parquet/{{config}}/{{i}}/0.parquet", "-O", f'{{config}}{{i}}.parquet'])
+            data_files = {{"train": f'{{config}}train.parquet',"test":f'{{config}}test.parquet'}}
+            dataset_slice = load_dataset("parquet", data_files=data_files)
+            dataset.append(dataset_slice)
+            
+    elif(dataset_name == "lukaemon/mmlu"):
+        for config in possible_configs:
+            dataset_slice = load_dataset(dataset_name, config,ignore_verifications=True)
+            dataset.append(dataset_slice)
+            
+    print(dataset)
 
     if(dataset_name=='lukaemon/mmlu'):
         os.makedirs("lukaemon_mmlu_files", exist_ok=True)
@@ -272,7 +294,7 @@ try:
     source_folder = os.getcwd()
     
     # Specify the destination zip file path
-    destination_zip = '/data/archive.zip'
+    destination_zip = '/data/{dataset_name}.zip'
 
     # Create a zip file
     shutil.make_archive(destination_zip.replace('.zip', ''), 'zip', source_folder)
@@ -293,10 +315,8 @@ except Exception as e:
 @stub.local_entrypoint()
 def main():
     # provide dataset name among ai2_arc, gsm8k, lukaemon/mmlu
-    dataset_name = "lukaemon/mmlu"
+    # some configs of mmlu are commented, uncomment to translate all
+    
+    dataset_name = "gsm8k"
     
     loadIndicTrans2.remote(dataset_name)
-
-    
-
-
